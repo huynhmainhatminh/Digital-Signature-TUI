@@ -2,7 +2,7 @@ import random
 import math
 import hashlib
 from textual.app import App, ComposeResult
-from textual.widgets import Button, Input, Static, Label, Header, TextArea
+from textual.widgets import Button, Input, Static, Label, Header, Select
 from textual.containers import Vertical, Horizontal, Container, HorizontalScroll, VerticalScroll
 from textual.color import Color
 from textual.screen import ModalScreen, Screen
@@ -114,6 +114,58 @@ def hash_file_256(message):
 
 
 
+class KeysizeSelectScreen(ModalScreen[int]):
+    DEFAULT_CSS = """
+    KeysizeSelectScreen {
+        align: center middle;
+        & > Vertical {
+            background: $background-lighten-1;
+            padding: 1 1;
+            width: 22%;
+            height: 30%;
+            border: round $primary;
+            align: center middle;
+            margin: 3;
+        }
+        #keysize-select {
+            background: transparent;
+            color: #00FF99;
+            text-align: center;
+            height: 1fr;
+            content-align: center middle;
+        }
+        #close {
+            align: center middle;
+            width: 1fr;
+            content-align: center middle;
+        }
+    }
+    """
+
+    def compose(self) -> ComposeResult:
+        with Vertical():
+            yield Select(
+                options=[
+                    ("512", 512),
+                    ("1024", 1024),
+                    ("2048", 2048),
+                    ("4096", 4096),
+                ],
+                prompt="Chọn kích thước khóa",
+                id="keysize-select",
+                compact=True
+            )
+            yield Button("Đóng", id="close")
+
+    @on(Button.Pressed, "#close")
+    def on_close(self) -> None:
+        self.dismiss(None)
+
+    @on(Select.Changed, "#keysize-select")
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.value is not None:
+            self.dismiss(event.value)
+
 class ErrorMessageScreen(ModalScreen[None]):
     DEFAULT_CSS = """
     ErrorMessageScreen {
@@ -151,10 +203,6 @@ class ErrorMessageScreen(ModalScreen[None]):
     }
     """
 
-    BINDINGS = [
-        ("escape", "dismiss('')", "Close error popup"),
-    ]
-
     def __init__(self, message: str, id_css: str):
         super().__init__()
         self.message = message
@@ -171,24 +219,54 @@ class ErrorMessageScreen(ModalScreen[None]):
 
 
 class Random_Prime:
-    def __init__(self) -> None:
-        self.min_val: int = 10
-        self.max_val: int = 100
+    def __init__(self, key_size: int | None = None, min_val: int = 10, max_val: int = 100) -> None:
+        self.min_val: int = min_val
+        self.max_val: int = max_val
+        self.key_size = key_size
 
     @staticmethod
-    def is_prime(n):
+    def is_prime(n, k=5):
+        """Kiểm tra số nguyên tố bằng thuật toán Miller-Rabin."""
         if n < 2:
             return False
-        for i in range(2, int(math.sqrt(n)) + 1):
-            if n % i == 0:
+        if n == 2 or n == 3:
+            return True
+        if n % 2 == 0:
+            return False
+
+        r, s = 0, n - 1
+        while s % 2 == 0:
+            r += 1
+            s //= 2
+
+        for _ in range(k):
+            a = random.randrange(2, n - 1)
+            x = pow(a, s, n)
+            if x == 1 or x == n - 1:
+                continue
+            for _ in range(r - 1):
+                x = (x * x) % n
+                if x == n - 1:
+                    break
+            else:
                 return False
         return True
 
     def generate_random_prime(self):
 
-        primes = [num for num in range(max(self.min_val, 2), self.max_val + 1) if self.is_prime(num)]
+        while True:
+            num = random.randrange(self.min_val, self.max_val)
+            if self.is_prime(num):
+                return num
 
-        return random.choice(primes)
+
+
+    def generate_rsa_keys(self):
+        """Tạo cặp khóa RSA với kích thước khóa (bit)."""
+        self.min_val = 2 ** (self.key_size // 2 - 1)
+        self.max_val = 2 ** (self.key_size // 2)
+
+        return self.generate_random_prime()
 
 
 class Apps(App):
@@ -216,10 +294,6 @@ class Apps(App):
         padding: 1;
     }
 
-    Vertical {
-        width: auto;
-    }
-
 
     Horizontal {
         width: auto;
@@ -229,6 +303,11 @@ class Apps(App):
         margin: 1;
         border: round $primary;
         background: transparent;
+    }
+    
+    Input:disabled {
+        color: white;
+        opacity: 1;
     }
 
     Label {
@@ -252,14 +331,19 @@ class Apps(App):
 
     Vertical#menu {
         height: 14;
-        width: 74;
+        width: auto;
         padding: 1 1;
         border: round $primary;
     }
 
     Vertical#menu1 {
+        width: 74;
         padding: 0 1;
         border: round $primary;
+    }
+    
+    Vertical#users {
+        width: 95;
     }
 
     Vertical#sender {
@@ -299,6 +383,11 @@ class Apps(App):
     Button#btn3 {
         border: round #FF0000;
         color: #FF0000;
+    }
+    
+    Button#btn4 {
+        border: round #00ffff;
+        color: #00ffff;
     }
 
 
@@ -504,6 +593,7 @@ class Apps(App):
                             yield Button("Ngẫu Nhiên", id="btn1")
                             yield Button("Tính Toán", id="btn2")
                             yield Button("Làm Mới", id="btn3")
+                            yield Button("Key Size", id="btn4")
 
                     with Vertical(id="menu1") as vertical:
                         vertical.border_title = "Dữ Liệu"
@@ -532,12 +622,12 @@ class Apps(App):
                             yield Label("Khóa Private (n,d)", id="key-private-n-d-label")
                             yield Static("", id="key-private-n-d")
 
-                with Vertical():
+                with Vertical(id="users"):
                     with Vertical():
                         with Vertical(id="sender") as vertical:
                             vertical.border_title = "Người Gửi"
                             with Horizontal():
-                                yield Button("Tải Tệp Tin ↑", id="btn_upload_file_sender")
+                                yield Button("Tải Tệp Tin Lên ↑", id="btn_upload_file_sender")
                                 yield Static("", id="upload_file_sender")
 
                             with Horizontal():
@@ -556,7 +646,7 @@ class Apps(App):
                             vertical.border_title = "Người Nhận"
 
                             with Horizontal():
-                                yield Button("Tải Tệp Tin ↑", id="btn_upload_file_receiver")
+                                yield Button("Tải Tệp Tin Gốc ↑", id="btn_upload_file_receiver")
                                 yield Static("", id="upload_file_receiver")
 
                             with Horizontal():
@@ -620,12 +710,34 @@ class Apps(App):
             self.query_one("#private-d", Static).update(str())
             self.query_one("#key-public-n-e", Static).update(str())
             self.query_one("#key-private-n-d", Static).update(str())
+            self.query_one("#upload_file_sender", Static).update(str())
+            self.query_one("#upload_file_receiver", Static).update(str())
+            self.query_one("#sha-256-sender", Static).update(str())
+            self.query_one("#sha-256-receiver", Static).update(str())
+            self.query_one("#signature-sender", Static).update(str())
+
+            self.query_one("#input-signature", Input).value = ""
+
+            self.public_key = (0, 0)
+            self.private_key = (0, 0)
+
+            self.data_sender = ""
+            self.data_receiver = ""
+
+            self.data_hash_sender = ""
+            self.data_hash_receiver = ""
+
+            self.data_sign_sender = ""
+
             self.notify("Làm Mới Thành Công")
+
+        elif event.button.id == "btn4":
+            self.push_screen(KeysizeSelectScreen(), callback=self.on_keysize_selected)
 
 
         elif event.button.id == "btn_upload_file_sender":
             file_path = askopenfilename(
-                title="Chọn tệp .txt",
+                title="Chọn tệp",
                 filetypes=[("All files", "*.*")]
             )
 
@@ -659,7 +771,7 @@ class Apps(App):
 
         elif event.button.id == "btn_upload_file_receiver":
             file_path = askopenfilename(
-                title="Chọn tệp .txt",
+                title="Chọn tệp",
                 filetypes=[("All files", "*.*")]
             )
 
@@ -698,9 +810,30 @@ class Apps(App):
         self.register_theme(galaxy_theme)
         self.theme = "galaxy"
 
-    def action_dismiss_popup(self) -> None:
-        if isinstance(self.screen, ErrorMessageScreen):
-            self.pop_screen()
+    def on_keysize_selected(self, value: int | None) -> None:
+        input_p_value = self.query_one("#input-p", Input)
+        input_q_value = self.query_one("#input-q", Input)
+
+        if value is not None:
+            input_p_value.disabled = True
+            input_p_value.value = str(Random_Prime(key_size=int(value)).generate_rsa_keys())
+
+            input_q_value.disabled = True
+            input_q_value.value = str(Random_Prime(key_size=int(value)).generate_rsa_keys())
+
+        else:
+            input_p_value.disabled = False
+            input_q_value.disabled = False
+
+            self.query_one("#input-p", Input).value = ""
+            self.query_one("#input-q", Input).value = ""
+            self.query_one("#modulus-n", Static).update(str())
+            self.query_one("#euler-n", Static).update(str())
+            self.query_one("#public-e", Static).update(str())
+            self.query_one("#private-d", Static).update(str())
+            self.query_one("#key-public-n-e", Static).update(str())
+            self.query_one("#key-private-n-d", Static).update(str())
+
 
 
 if __name__ == "__main__":
