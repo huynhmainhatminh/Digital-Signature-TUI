@@ -146,6 +146,7 @@ class KeysizeSelectScreen(ModalScreen[int]):
         with Vertical():
             yield Select(
                 options=[
+                    ("256", 256),
                     ("512", 512),
                     ("1024", 1024),
                     ("2048", 2048),
