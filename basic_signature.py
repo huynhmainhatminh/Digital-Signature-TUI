@@ -172,7 +172,7 @@ class ErrorMessageScreen(ModalScreen[None]):
     ErrorMessageScreen {
         align: center middle;
         & > Vertical {
-            background: $background-lighten-1;
+            background: transparent;
             padding: 1 2;
             width: auto;
             height: 25%;
@@ -214,9 +214,20 @@ class ErrorMessageScreen(ModalScreen[None]):
             yield Static(self.message, id=self.id_css)
             yield Button("Đóng", id="close")
 
+    def on_mount(self) -> None:
+        vertical = self.query_one(Vertical)
+        vertical.styles.animate("opacity", value=1.0, duration=0.5, easing="in_out_cubic")
+
     @on(Button.Pressed, "#close")
     def on_close(self) -> None:
-        self.app.pop_screen()
+        vertical = self.query_one(Vertical)
+        vertical.styles.animate(
+            "opacity",
+            value=0.0,
+            duration=0.5,
+            easing="in_out_cubic",
+            on_complete=lambda: self.app.pop_screen()
+        )
 
 
 class Random_Prime:
@@ -599,6 +610,7 @@ class Apps(App):
                     with Vertical(id="menu1") as vertical:
                         vertical.border_title = "Dữ Liệu"
 
+
                         with Horizontal():
                             yield Label("Modulus n", id="modulus-n-label")
                             yield Static("", id="modulus-n")
@@ -628,20 +640,20 @@ class Apps(App):
                         with Vertical(id="sender") as vertical:
                             vertical.border_title = "Người Gửi"
                             with Horizontal():
-                                yield Button("Tải Tệp Tin Lên ↑", id="btn_upload_file_sender")
+                                yield Button("[b]Tải Tệp Tin Lên ↑[/]", id="btn_upload_file_sender")
                                 yield Static("", id="upload_file_sender")
 
                             with Horizontal():
-                                yield Label("SHA-256", id="sender-sha-256")
+                                yield Label("[b]SHA-256[/]", id="sender-sha-256")
                                 yield Static("", id="sha-256-sender")
 
                             with Horizontal():
-                                yield Label("Chữ ký số", id="sender-signature-label")
+                                yield Label("[b]Chữ ký số[/]", id="sender-signature-label")
                                 yield Static("", id="signature-sender")
 
                             with Horizontal(id="button-receiver"):
-                                yield Button("Băm (HASH)", id="btn1-sender")
-                                yield Button("Ký Số", id="btn2-sender")
+                                yield Button("[b]Băm (HASH)[/]", id="btn1-sender")
+                                yield Button("[b]Ký Số[/]", id="btn2-sender")
 
                         with Vertical(id="receiver") as vertical:
                             vertical.border_title = "Người Nhận"
@@ -655,23 +667,28 @@ class Apps(App):
                                 yield Static("", id="sha-256-receiver")
 
                             with Horizontal():
-                                yield Label("Chữ ký số", id="receiver-signature-label")
+                                yield Label("[b]Chữ ký số[/]", id="receiver-signature-label")
                                 yield Input("", id="input-signature")
 
                             with Horizontal(id="button-receiver"):
-                                yield Button("Băm (HASH)", id="btn1-receiver")
-                                yield Button("Xác Minh", id="btn4-receiver")
+                                yield Button("[b]Băm (HASH)[/]", id="btn1-receiver")
+                                yield Button("[b]Xác Minh[/]", id="btn4-receiver")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
 
         if event.button.id == "btn1":
+            event.button.styles.animate("opacity", value=0.2, duration=0.5)
+
             input_p = self.query_one("#input-p", Input)
             input_p.value = str(Random_Prime().generate_random_prime())
 
             input_q = self.query_one("#input-q", Input)
             input_q.value = str(Random_Prime().generate_random_prime())
 
+
+
         elif event.button.id == "btn2":
+            event.button.styles.animate("opacity", value=0.2, duration=0.5)
 
             input_p_value = str(self.query_one("#input-p", Input).value)
             input_q_value = str(self.query_one("#input-q", Input).value)
@@ -702,7 +719,10 @@ class Apps(App):
             else:
                 self.push_screen(ErrorMessageScreen(message="Tham số không hợp lệ. Vui lòng kiểm tra lại !", id_css="error-message"))
 
+
         elif event.button.id == "btn3":
+            event.button.styles.animate("opacity", value=0.2, duration=0.5)
+
             self.query_one("#input-p", Input).value = ""
             self.query_one("#input-q", Input).value = ""
             self.query_one("#modulus-n", Static).update(str())
@@ -733,10 +753,14 @@ class Apps(App):
             self.notify("Làm Mới Thành Công")
 
         elif event.button.id == "btn4":
+            event.button.styles.animate("opacity", value=0.2, duration=0.5)
+
             self.push_screen(KeysizeSelectScreen(), callback=self.on_keysize_selected)
 
 
         elif event.button.id == "btn_upload_file_sender":
+            event.button.styles.animate("opacity", value=0.2, duration=0.5)
+
             file_path = askopenfilename(
                 title="Chọn tệp",
                 filetypes=[("All files", "*.*")]
@@ -754,6 +778,7 @@ class Apps(App):
                 self.notify("Không Có Tệp Nào Được Chọn")
 
         elif event.button.id == "btn1-sender":
+            event.button.styles.animate("opacity", value=0.2, duration=0.5)
 
             if self.data_sender != "":
                 self.data_hash_sender = hash_file_256(message=str(self.data_sender))
@@ -765,12 +790,16 @@ class Apps(App):
 
 
         elif event.button.id == "btn2-sender":
+            event.button.styles.animate("opacity", value=0.2, duration=0.5)
+
             self.data_sign_sender = sign_message(self.private_key, self.data_hash_sender)
             self.query_one("#signature-sender", Static).update(
                 f"{self.data_sign_sender}"
             )
 
         elif event.button.id == "btn_upload_file_receiver":
+            event.button.styles.animate("opacity", value=0.2, duration=0.5)
+
             file_path = askopenfilename(
                 title="Chọn tệp",
                 filetypes=[("All files", "*.*")]
@@ -785,6 +814,8 @@ class Apps(App):
                     self.data_receiver = f.read()
 
         elif event.button.id == "btn1-receiver":
+            event.button.styles.animate("opacity", value=0.2, duration=0.5)
+
             if self.data_receiver != "":
                 self.data_hash_receiver = hash_file_256(message=str(self.data_receiver))
                 self.query_one("#sha-256-receiver", Static).update(
@@ -795,6 +826,8 @@ class Apps(App):
 
 
         elif event.button.id == "btn4-receiver":
+            event.button.styles.animate("opacity", value=0.2, duration=0.5)
+
             input_signature = int(self.query_one("#input-signature", Input).value)
             is_valid = verify_signature(
                 hash256=self.data_hash_receiver,
@@ -806,10 +839,40 @@ class Apps(App):
                 self.push_screen(ErrorMessageScreen(message="Xác Minh Chữ Ký Không Hợp Lệ Hoặc Thông Điệp Giả Mạo",
                                                     id_css="error-message"))
 
+        event.button.styles.animate("opacity", value=1.0, duration=0.2)
 
     def on_mount(self) -> None:
         self.register_theme(galaxy_theme)
         self.theme = "galaxy"
+
+        list_data_label_RSA = ["modulus-n-label", "euler-n-label", "public-e-label",
+                               "private-d-label", "key-public-n-e-label", "key-private-n-d-label"]
+        list_data_static_RSA = [
+            "modulus-n", "euler-n", "public-e", "private-d", "key-public-n-e", "key-private-n-d"
+        ]
+
+        for _ in range(1, 5):
+            button_container = self.query_one(f"#btn{_}", Button)
+            button_container.styles.opacity = 0
+            button_container.styles.animate("opacity", value=1.0, duration=1.5)
+
+        for index, (i, j) in enumerate(zip(list_data_label_RSA, list_data_static_RSA)):
+
+            label = self.query_one(f"#{i}", Label)
+            static = self.query_one(f"#{j}", Static)
+            label.styles.opacity = 0
+            static.styles.opacity = 0
+            label.styles.animate("opacity", value=1.0, duration=1.0, delay=index * 0.2, )
+            static.styles.animate("opacity", value=1.0, duration=1.0, delay=(index + 0.5) * 0.2)
+
+        menu1_vertical = self.query_one(f"#menu1", Vertical)
+        menu1_vertical.styles.animate("height", value=27, duration=1.0, easing="in_out_cubic")
+
+        users_sender = self.query_one(f"#sender", Vertical)
+        users_sender.styles.animate("height", value=20, duration=1.0, easing="out_bounce")
+
+        users_receiver = self.query_one(f"#receiver", Vertical)
+        users_receiver.styles.animate("height", value=21, duration=1.0, easing="out_bounce")
 
     def on_keysize_selected(self, value: int | None) -> None:
         input_p_value = self.query_one("#input-p", Input)
